@@ -1,19 +1,20 @@
+##############################################
+# This is the python file for Flickr crawling
+# Author @ Chia-Hui Liu (GitHub: chiahuiliu)
+##############################################
+
+# import packages
 import flickrapi
-import xml.etree.ElementTree as ET
-import lxml
 import json
 import pandas as pd
-from pprint import pprint
 import urllib.request
-from progressbar import ProgressBar
 
-
-
-api_key = ### your api key here ###
-api_secret = ### your api secret here ###
-# Build connection with Flickr
-flickr=flickrapi.FlickrAPI(api_key,api_secret,cache=True)
-pg = ProgressBar()
+def build_connection():
+	# This function is used to build the connection and authorization from Flickr
+	api_key = ### your api key here ###
+	api_secret = ### your api secret here ###
+	flickrapi = flickrapi.FlickrAPI(api_key,api_secret,cache=True)
+	return flickrapi
 
 
 res_cols = ['photo_id', 'height', 'width', 'owner', 'ispublic',
