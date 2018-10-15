@@ -32,37 +32,72 @@ def check_num_records(flickr, user_accont):
 	total_records = pages['photos']['pages']
 	return total_records
 
-def get_record_info(flickr, user_accont, total_records):
+def get_record_info(flickr, user_accont, p):
 	'''
 	This is used to get all record information
 	'''
-	id_list=[]
-	pbar = ProgressBar()
-	for i in pbar(range(total_records)):
-		obj = flickr.photos.search(user_id=user_accont,
-	                           format='json',
-	                           extras='url_c',
-	                           per_page=1,
-	                           page=1)
-		obj = obj.decode('utf8').replace("'", '"')
-		data = json.loads(obj)
-		res = json.dumps(data, indent=4, sort_keys=True)
-		res = json.loads(res)
-		photo_dict = dict(res['photos']['photo'][0])
-		id_list.append([photo_dict.get('id'), photo_dict.get('title'), photo_dict.get('url_c')])
-	return id_list
+	obj = flickr.photos.search(user_id=user_accont, format='json', extras='url_c', per_page=500, page=p)
+	obj = obj.decode('utf8').replace("'", '"')
+	data = json.loads(obj)
+	res = json.dumps(data, indent=4, sort_keys=True)
+	res = json.loads(res)
+	return res
 
+def process_results(res):
+    photo_list = res['photos']['photo']
+    res_list=[]
+    for each_dict in photo_list:
+        res_list.append([each_dict.get('id'),
+        each_dict.get('title'),
+        each_dict.get('url_c')
+        ])
+
+    df = pd.DataFrame(res_list, columns=['id', 'title', 'url'])
+    # print(df.sample(5))
+    return df
+
+def concat_brief_df(big_df,df):
+    big_df = big_df.append(df, ignore_index=True)
+    return big_df
+
+def download_photos(record_info_df):
+	pbar = ProgressBar()
+	for i in pbar(range(len(record_info_df))):
+		filename = record_info_df['id'].loc[i]
+		try:
+			f = open('results/'+str(filename)+'.jpg', 'wb')
+			f.write(urllib.request.urlopen(record_info_df['url'].loc[i]).read())
+			f.close()
+		except:
+			print(str(i) + ": no url")
 
 
 if __name__ == "__main__":
+	'''
+	Step 1. Connect and get authorization of Flickr, and get the brief metadata
+	'''
 	print("Building and asking authorization...")
 	flickr = build_connection()
 	print("Getting record counts....")
 	records = check_num_records(flickr, '146634855@N06')
+	total_page = int(records/500)+1
 	print("Getting record information...")
+
 	# Here, the variable record_info contains the id, title, and the link
-	record_info = get_record_info(flickr, '146634855@N06', records)
-	# convert the results into DataFrame
-	record_info_df = pd.DataFrame(record_info, columns=['id', 'title', 'url'])
+	record_info_df = pd.DataFrame(columns=['id', 'title', 'url'])
+
+	pbar1 = ProgressBar()
+	for per_page in pbar1(range(total_page)):
+		temp_df = process_results(get_record_info(flickr, '146634855@N06', per_page))
+		record_info_df = concat_brief_df(record_info_df, temp_df)
+
+	print(record_info_df.head(20))
 	# save the resutls to csv file
 	record_info_df.to_csv('flickr_brief_record.csv', index=False)
+	'''
+	Step 2. Download all the pictures
+	'''
+	download_photos(record_info_df)
+	'''
+	Step 3. Get informative data
+	'''
