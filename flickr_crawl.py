@@ -13,18 +13,20 @@ from progressbar import ProgressBar
 
 
 def build_connection():
-	# This function is used to build the connection and authorization from Flickr
+	'''
+	This function is used to build the connection and authorization from Flickr
+	'''
 	api_key = ### your api key here ###
 	api_secret = ### your api secret here ###
+
 	flickr = flickrapi.FlickrAPI(api_key,api_secret,cache=True)
 	return flickr
 
 def check_num_records(flickr, user_accont):
-	# check how many records
-	page_obj = flickr.photos.search(user_id=user_accont,
-                           format='json',
-                           extras='url_c',
-                           per_page=1)
+	'''
+	check how many records
+	'''
+	page_obj = flickr.photos.search(user_id=user_accont, format='json', extras='url_c',per_page=1)
 	page_obj = page_obj.decode('utf8').replace("'", '"')
 	page_json = json.loads(page_obj)
 	pages = json.dumps(page_json, indent=4, sort_keys=True)
@@ -44,23 +46,28 @@ def get_record_info(flickr, user_accont, p):
 	return res
 
 def process_results(res):
-    photo_list = res['photos']['photo']
-    res_list=[]
-    for each_dict in photo_list:
-        res_list.append([each_dict.get('id'),
-        each_dict.get('title'),
-        each_dict.get('url_c')
-        ])
-
-    df = pd.DataFrame(res_list, columns=['id', 'title', 'url'])
-    # print(df.sample(5))
-    return df
+	'''
+	Used to get photo's id, title, and url
+	'''
+	photo_list = res['photos']['photo']
+	res_list=[]
+	for each_dict in photo_list:
+		res_list.append([each_dict.get('id'), each_dict.get('title'), each_dict.get('url_c')])
+	df = pd.DataFrame(res_list, columns=['id', 'title', 'url'])
+	return df
 
 def concat_brief_df(big_df,df):
-    big_df = big_df.append(df, ignore_index=True)
-    return big_df
+	'''
+	concat results
+	'''
+	big_df = big_df.append(df, ignore_index=True)
+	return big_df
 
 def download_photos(record_info_df):
+	'''
+	Download photos and set id as the filename
+	P.S. The reason why I'm not taking title as the filename is that title is not unique.
+	'''
 	pbar = ProgressBar()
 	for i in pbar(range(len(record_info_df))):
 		filename = record_info_df['id'].loc[i]
@@ -71,6 +78,60 @@ def download_photos(record_info_df):
 		except:
 			print(str(i) + ": no url")
 
+def get_meta(each_photo_id):
+	crawl_info_res = []
+	print("Getting photo Info...")
+	obj = flickr.photos.getInfo(photo_id=each_photo_id, format='json')
+	obj = obj.decode('utf8').replace("'", '"')
+	data = json.loads(obj)
+	res = json.dumps(data, indent=4, sort_keys=True)
+	res = json.loads(res)
+	crawl_info_res.append(res)
+	return crawl_info_res
+
+def process_meta(each_meta):
+	meta_dict = dict(each_meta['photo'])
+	print(meta_dict)
+	print()
+	print()
+	revised_dict = {}
+	temp_res = []
+	for k,v in meta_dict.items():
+		if isinstance(v,dict):
+			for k1, v1 in v.items():
+				if isinstance(v1,dict):
+					for k2, v2 in v1.items():
+						if '_' in k2 and '_' in k1:
+							temp_key = str(k+k1+k2)
+						elif '_' in k2 and '_' not in k1:
+							temp_key = str(k+'_'+k1+k2)
+						else:
+							temp_key = str(k+'_'+k1+'_'+k2)
+						revised_dict[temp_key] = v2
+				elif isinstance(v1,list):
+					if len(v1)>0:
+						dict_v1 = dict(v1[0])
+						for k2, v2 in dict_v1.items():
+							if '_' in k2 and '_' in k1:
+								temp_key = str(k+k1+k2)
+							elif '_' in k2 and '_' not in k1:
+								temp_key = str(k+'_'+k1+k2)
+							else:
+								temp_key = str(k+'_'+k1+'_'+k2)
+							revised_dict[temp_key] = v2
+					else:
+						temp_key = str(k+'_'+k1)
+						revised_dict[temp_key] = ''
+				elif '_' in k1:
+					temp_key = str(k+k1)
+					revised_dict[temp_key] = v1
+				else:
+					temp_key = str(k+'_'+k1)
+					revised_dict[temp_key] = v1
+		else:
+			revised_dict[k] = v
+
+	print(revised_dict)
 
 if __name__ == "__main__":
 	'''
@@ -97,7 +158,14 @@ if __name__ == "__main__":
 	'''
 	Step 2. Download all the pictures
 	'''
-	download_photos(record_info_df)
+	# download_photos(record_info_df)
 	'''
 	Step 3. Get informative data
 	'''
+	crawl_meta = []
+	pbar2 = ProgressBar()
+	for per_id in (range(3)):
+		crawl_meta.append(get_meta(record_info_df['id'].loc[per_id]))
+	for each_meta in crawl_meta[:1]:
+		process_meta(each_meta[0])
+	#print(crawl_meta[0])
