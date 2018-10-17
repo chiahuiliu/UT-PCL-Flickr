@@ -2,12 +2,14 @@
 # This is the python file for Flickr crawling
 # Author @ Chia-Hui Liu (GitHub: chiahuiliu)
 # the Flickr we are interested: 146634855@N06
+#!/usr/bin/env python3
 ##############################################
 
 # import packages
 import flickrapi
 import json
 import pandas as pd
+import numpy as np
 import urllib.request
 from progressbar import ProgressBar
 
@@ -18,7 +20,6 @@ def build_connection():
 	'''
 	api_key = ### your api key here ###
 	api_secret = ### your api secret here ###
-
 	flickr = flickrapi.FlickrAPI(api_key,api_secret,cache=True)
 	return flickr
 
@@ -80,7 +81,6 @@ def download_photos(record_info_df):
 
 def get_meta(each_photo_id):
 	crawl_info_res = []
-	print("Getting photo Info...")
 	obj = flickr.photos.getInfo(photo_id=each_photo_id, format='json')
 	obj = obj.decode('utf8').replace("'", '"')
 	data = json.loads(obj)
@@ -90,10 +90,10 @@ def get_meta(each_photo_id):
 	return crawl_info_res
 
 def process_meta(each_meta):
+	'''
+	Convert crawled results to pandas dataframe
+	'''
 	meta_dict = dict(each_meta['photo'])
-	print(meta_dict)
-	print()
-	print()
 	revised_dict = {}
 	temp_res = []
 	for k,v in meta_dict.items():
@@ -130,8 +130,13 @@ def process_meta(each_meta):
 					revised_dict[temp_key] = v1
 		else:
 			revised_dict[k] = v
-
-	print(revised_dict)
+	columns_list = list(revised_dict.keys())
+	values = ([str(x) for x in revised_dict.values()])
+	temp_df = pd.DataFrame(values)
+	# transpose
+	temp_res_df = temp_df.T
+	temp_res_df.columns = columns_list
+	return temp_res_df
 
 if __name__ == "__main__":
 	'''
@@ -152,7 +157,6 @@ if __name__ == "__main__":
 		temp_df = process_results(get_record_info(flickr, '146634855@N06', per_page))
 		record_info_df = concat_brief_df(record_info_df, temp_df)
 
-	print(record_info_df.head(20))
 	# save the resutls to csv file
 	record_info_df.to_csv('flickr_brief_record.csv', index=False)
 	'''
@@ -163,9 +167,13 @@ if __name__ == "__main__":
 	Step 3. Get informative data
 	'''
 	crawl_meta = []
-	pbar2 = ProgressBar()
-	for per_id in (range(3)):
+	final_res = pd.DataFrame()
+	for per_id in (range(len(record_info_df))):
 		crawl_meta.append(get_meta(record_info_df['id'].loc[per_id]))
-	for each_meta in crawl_meta[:1]:
-		process_meta(each_meta[0])
-	#print(crawl_meta[0])
+	for each_meta in crawl_meta:
+		temp_df = process_meta(each_meta[0])
+		if len(final_res) < 1:
+			final_res = temp_df
+		else:
+			final_res = pd.concat([final_res,temp_df])
+	final_res.to_csv('final_flickr_results_v5.csv', ignore_index=True)
