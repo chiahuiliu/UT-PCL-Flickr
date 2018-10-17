@@ -21,6 +21,16 @@ To be legally authorized to crawl the information on Flickr, you’ll need Flick
   - Now you’ll see the key and secret have been generated for you. Please copy the key and secret you’ve got from Flickr.
 
 ### Code
+Function explanations (sorted according to the squence of use)
+1. `build_connection()`: used to build the connection and authorization from Flickr
+2. `check_num_records()`: check how many records for the specific Flickr account
+3. `get_record_info()`: get the brief record info (for the purpose of downloading)
+4. `process_results()`: used to get photo's id, title, and url
+5. `concat_brief_df()`: convert all the results into a big pandas DataFrame (columns: id, title, url)
+6. `download_photos()`: download photos and set id as the filename
+7. `get_meta()`: get meta information for each photo
+8. `process_meta()`: convert meta results into pandas dataframe
+9. 
 
 ## Results
 1. Photos: We are able to download all the photos under the account “University of Texas Biodiversity Collection” on Flickr. 
